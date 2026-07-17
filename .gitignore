@@ -1,0 +1,11 @@
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+windows/build/
+windows/flutter/ephemeral/
+*.g.dart
+*.freezed.dart
+.vs/
+*.user

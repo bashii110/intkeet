@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  dart:
+    name: Flutter analyze + test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: flutter analyze --fatal-infos
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: flutter test
+
+      # 03-RULES.md §1 rule 3: no secrets in source/logs/plaintext files.
+      - name: Grep for accidental secret literals
+        shell: bash
+        run: |
+          if grep -rEn "sk-[A-Za-z0-9]{16,}|(['\"])?key(['\"])?\s*[:=]\s*['\"][A-Za-z0-9_\-]{16,}['\"]" \
+               --include="*.dart" --include="*.cpp" --include="*.h" \
+               --exclude-dir=.dart_tool --exclude-dir=build .; then
+            echo "::error::Possible secret literal found in source."
+            exit 1
+          fi
+
+  native:
+    name: Native build (CMake/MSBuild, /W4 warnings-as-errors) + GoogleTest
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure native_overlay standalone (core sources only)
+        working-directory: windows
+        run: cmake -S . -B build -A x64
+      - name: Build
+        working-directory: windows
+        run: cmake --build build --config Debug
+      - name: Run native_overlay_tests
+        working-directory: windows/build
+        run: ctest -C Debug --output-on-failure

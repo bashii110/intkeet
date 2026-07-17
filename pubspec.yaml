@@ -1,0 +1,52 @@
+name: ai_overlay_assistant
+description: Windows AI Overlay Assistant — Flutter host app.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management (03-RULES.md §2: Riverpod is the standard for new code)
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # Immutable models (03-RULES.md §2: freezed or hand-written copyWith)
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+
+  # Storage (02-ARCHITECTURE.md §9: SQLite for non-secret data)
+  drift: ^2.19.0
+  sqlite3_flutter_libs: ^0.5.24
+  path_provider: ^2.1.3
+  path: ^1.9.0
+
+  # Secure storage backing (Windows Credential Locker wrapper lives in
+  # services/storage/secure_key_storage.dart; this package exposes the
+  # underlying win32 credential APIs it wraps)
+  win32: ^5.5.4
+  ffi: ^2.1.3
+
+  # Networking for AI provider adapters (SSE / streaming HTTP)
+  http: ^1.2.1
+  web_socket_channel: ^2.4.5
+
+  # Utility
+  uuid: ^4.4.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.11
+  freezed: ^2.5.7
+  json_serializable: ^6.8.0
+  riverpod_generator: ^2.4.3
+  mocktail: ^1.0.4
+  drift_dev: ^2.19.0
+
+flutter:
+  uses-material-design: true
