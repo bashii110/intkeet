@@ -19,6 +19,9 @@ add_executable(native_overlay_tests
   overlay_manager_test.cpp
   display_affinity_test.cpp
   hotkey_manager_test.cpp
+  markdown_parser_test.cpp
+  syntax_highlighter_test.cpp
+  content_model_test.cpp
 )
 
 target_link_libraries(native_overlay_tests PRIVATE

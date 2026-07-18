@@ -8,6 +8,7 @@ the full spec this scaffold implements against.
 
 **Phase 0 (scaffolding) — structurally complete, unverified.**
 **Phase 1 (native overlay foundation) — core implementation in place, unverified.**
+**Phase 2 (bridge & content rendering) — core implementation in place, unverified.**
 
 This code was generated in a Linux sandbox with **no Flutter SDK, no
 Windows SDK/MSVC, and no way to run `flutter create`, `flutter analyze`,
@@ -41,10 +42,36 @@ ctest --test-dir build -C Debug --output-on-failure
 | `HotkeyManager` | Structural only — `RegisterHotKey` wiring is Phase 3 per `04-PHASES.md` |
 | `Animator` | Real: timer-driven show/hide fade, respects OS reduced-motion setting |
 | MethodChannel bridge (`method_channel_handlers.cpp` / `windows_overlay_bridge.dart`) | Real, channel names/payload shapes match on both sides |
-| FFI fast path | Only the schema-version handshake — full fast path is Phase 2 |
-| Direct2D/WebView2 content rendering | Not started — Phase 2 |
+| FFI fast path | Real: `AiOverlay_AppendContentToken`/`AiOverlay_ResetContent` reach the live `OverlayManager` via `ActiveInstance()`, exercised from Dart in `overlay_content_channel.dart` |
+| `MarkdownParser` / `SyntaxHighlighter` / `ContentModel` | Real: heading/bold/list/fenced-code parsing, heuristic per-line syntax tokens, dirty-block diffing — all native-unit-tested |
+| `RendererD2D` | Real: Direct2D/DirectWrite paint of all block kinds, copy-button hit-testing, dirty-rect `InvalidateRect` (see "Dirty-rect, precisely" below for what that does and doesn't cover) |
+| `RendererWebView2` | Real but **cannot be exercised in this sandbox at all** — requires the WebView2 SDK, off by default (`AI_OVERLAY_ENABLE_WEBVIEW2`), copy-click wired straight to the clipboard since WebView2 input never reaches `OverlayWindow`'s WndProc |
+| Direct2D exact text metrics (per-glyph advance) | Approximated (fixed px-per-character), flagged in `renderer_d2d.cpp` — real `IDWriteTextLayout` measurement is a follow-up once visual QA on a real machine shows where it's off |
 
-### Known open item
+### Dirty-rect, precisely
+
+The Phase 2 gate asks for "dirty-rect based repaint (no full-window
+redraw per token)." What's actually implemented: `ContentModel` diffs
+each re-parse and reports which *blocks* changed; `RendererD2D` uses
+that to (a) only recompute layout from the first changed block onward,
+not the whole document, and (b) call `InvalidateRect` with just the
+affected screen region rather than the whole client area. What it does
+**not** do is partial-target Direct2D presentation — each `WM_PAINT`
+still runs one `BeginDraw`/`EndDraw` over all cached blocks. For a panel
+this size that's standard practice and should comfortably hit the 60 FPS
+target, but if profiling on real hardware says otherwise, the next step
+is `ID2D1DeviceContext` + `PushAxisAlignedClip` per invalid rect, not a
+rewrite of the diffing logic above it.
+
+### Second design-doc deviation: WebView2's color duplication
+
+`05-DESIGN.md` §2.1 says colors live in exactly two files (`tokens.dart`
++ `renderer_d2d.cpp`). `windows/web/overlay_content.html`'s `<style>`
+block necessarily hardcodes the same palette a third time — CSS can't
+import a Dart or C++ constant. Flagged in a comment at the top of that
+file rather than silently resolved; worth a decision on whether to
+generate that block from `tokens.dart` at build time, or just amend the
+doc to name it as an explicit third, generated-from mirror.
 
 `method_channel_handlers.cpp` fires `EventChannel` events from
 `OverlayThread`, but Flutter's Windows embedder expects `EventSink`

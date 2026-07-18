@@ -22,6 +22,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(NATIVE_OVERLAY_CORE_SOURCES
   logging/native_log.cpp
   logging/native_log.h
+  content/block.h
+  content/markdown_parser.cpp
+  content/markdown_parser.h
+  content/syntax_highlighter.cpp
+  content/syntax_highlighter.h
+  content/content_model.cpp
+  content/content_model.h
+  native/overlay_content_renderer.h
+  native/renderer_d2d.cpp
+  native/renderer_d2d.h
+  native/clipboard_util.cpp
+  native/clipboard_util.h
   native/overlay_window.cpp
   native/overlay_window.h
   native/overlay_manager.cpp
@@ -53,6 +65,29 @@ if (TARGET flutter_wrapper_plugin)
   )
 endif()
 
+# WebView2 mode (02-ARCHITECTURE.md §7) — opt-in, off by default
+# (03-RULES.md §6: experimental features stay behind a flag). Requires
+# the Microsoft.Web.WebView2 SDK (NuGet or standalone), which is not
+# part of the in-box Windows SDK and is NOT fetched by this CMakeLists —
+# point WEBVIEW2_SDK_DIR at a local install to enable it.
+option(AI_OVERLAY_ENABLE_WEBVIEW2 "Build the optional WebView2 overlay renderer" OFF)
+if (AI_OVERLAY_ENABLE_WEBVIEW2)
+  if (NOT DEFINED WEBVIEW2_SDK_DIR)
+    message(FATAL_ERROR
+      "AI_OVERLAY_ENABLE_WEBVIEW2 is ON but WEBVIEW2_SDK_DIR is not set. "
+      "Point it at your Microsoft.Web.WebView2 SDK install "
+      "(needs include/WebView2.h and the matching .lib).")
+  endif()
+  target_sources(native_overlay PRIVATE
+    native/renderer_webview2.cpp
+    native/renderer_webview2.h
+  )
+  target_compile_definitions(native_overlay PRIVATE ENABLE_WEBVIEW2_OVERLAY)
+  target_include_directories(native_overlay PRIVATE "${WEBVIEW2_SDK_DIR}/include")
+  target_link_directories(native_overlay PRIVATE "${WEBVIEW2_SDK_DIR}/lib")
+  target_link_libraries(native_overlay PRIVATE WebView2LoaderStatic)
+endif()
+
 target_include_directories(native_overlay PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 if (MSVC)
@@ -65,7 +100,7 @@ else()
   target_compile_options(native_overlay PRIVATE -Wall -Wextra)
 endif()
 
-target_link_libraries(native_overlay PRIVATE dwmapi user32 gdi32)
+target_link_libraries(native_overlay PRIVATE dwmapi user32 gdi32 d2d1 dwrite)
 
 if (TARGET flutter_wrapper_plugin)
   target_link_libraries(native_overlay PRIVATE flutter_wrapper_plugin)

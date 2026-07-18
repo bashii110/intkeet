@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<!--
+  Driven by RendererWebView2::PushContentToPage() calling
+  window.renderBlocks(json) after every ContentModel change. Click
+  handling posts back to native via window.chrome.webview.postMessage
+  (documented WebView2 JS API).
+
+  KNOWN DEVIATION FLAGGED FOR REVIEW: 05-DESIGN.md §2.1 states color
+  hexes live in exactly two files (tokens.dart + renderer_d2d.cpp). This
+  file necessarily hardcodes the same palette a third time since CSS
+  can't import a Dart/C++ constant file. Options if this needs to stay
+  strict: (a) generate this <style> block from tokens.dart at build time
+  via a small script, or (b) explicitly amend 05-DESIGN.md §2.1 to name
+  this file as a third, generated-from mirror. Left as-is for Phase 2;
+  raise in review rather than silently resolved.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<style>
+  :root {
+    --bg-base: #0F1115;
+    --bg-elevated: #171A21;
+    --border-subtle: #2A2E38;
+    --text-primary: #EDEFF5;
+    --text-secondary: #9AA1B2;
+    --accent-primary: #7C9CFF;
+    --syntax-keyword: #C792EA;
+    --syntax-string: #C3E88D;
+    --syntax-function: #82AAFF;
+    --syntax-comment: #6B7280;
+    --syntax-number: #F78C6C;
+  }
+  body {
+    margin: 0;
+    padding: 16px;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    font-family: "Segoe UI Variable Text", "Segoe UI", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .heading { font-family: "Segoe UI Variable Display", sans-serif; font-weight: 600; margin: 12px 0 4px; }
+  .list-item { margin-left: 16px; }
+  .code-block { background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    border-radius: 6px; margin: 8px 0; overflow: hidden; }
+  .code-header { display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 8px; color: var(--text-secondary); font-size: 12px; }
+  .code-copy-btn { cursor: pointer; color: var(--accent-primary); background: none;
+    border: 1px solid var(--accent-primary); border-radius: 4px; font-size: 11px; }
+  .code-body { font-family: "Cascadia Code", Consolas, monospace; font-size: 13px;
+    line-height: 1.4; padding: 4px 8px; white-space: pre; overflow-x: auto; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  // BlockKind enum values must match windows/content/block.h's
+  // BlockKind ordering exactly (0=Heading,1=Paragraph,2=ListItem,3=CodeBlock).
+  const BLOCK_KIND = { HEADING: 0, PARAGRAPH: 1, LIST_ITEM: 2, CODE_BLOCK: 3 };
+
+  function renderBlocks(blocks) {
+    const root = document.getElementById('root');
+    root.innerHTML = '';
+    blocks.forEach((block, index) => {
+      const el = document.createElement('div');
+      switch (block.kind) {
+        case BLOCK_KIND.HEADING:
+          el.className = 'heading';
+          el.textContent = block.text;
+          break;
+        case BLOCK_KIND.LIST_ITEM:
+          el.className = 'list-item';
+          el.textContent = '• ' + block.text;
+          break;
+        case BLOCK_KIND.CODE_BLOCK: {
+          el.className = 'code-block';
+          const header = document.createElement('div');
+          header.className = 'code-header';
+          const lang = document.createElement('span');
+          lang.textContent = block.language || '';
+          const copyBtn = document.createElement('button');
+          copyBtn.className = 'code-copy-btn';
+          copyBtn.textContent = 'Copy';
+          copyBtn.onclick = () => {
+            window.chrome.webview.postMessage(
+              JSON.stringify({ type: 'copyClicked', blockIndex: index })
+            );
+          };
+          header.appendChild(lang);
+          header.appendChild(copyBtn);
+          const body = document.createElement('div');
+          body.className = 'code-body';
+          body.textContent = (block.lines || []).join('\n');
+          el.appendChild(header);
+          el.appendChild(body);
+          break;
+        }
+        default:
+          el.textContent = block.text;
+      }
+      root.appendChild(el);
+    });
+  }
+  window.renderBlocks = renderBlocks;
+</script>
+</body>
+</html>

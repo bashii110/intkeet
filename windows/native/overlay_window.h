@@ -23,6 +23,14 @@ struct WindowBounds {
 using BoundsChangedCallback = std::function<void(const WindowBounds&)>;
 using DpiChangedCallback = std::function<void(double scale_factor)>;
 
+// Phase 2 content hooks — OverlayWindow stays renderer-agnostic
+// (03-RULES.md §3): it only reports "you should paint now" / "you were
+// clicked here" / "you were resized to WxH"; OverlayManager decides what
+// that means by wiring in the active OverlayContentRenderer.
+using PaintCallback = std::function<void()>;
+using ClickCallback = std::function<void(POINT client_pt)>;
+using ResizeCallback = std::function<void(int width, int height)>;
+
 // OverlayWindow: only knows how to *be* a window — create/destroy/move/
 // resize/style (03-RULES.md §3 "one class, one responsibility"). Drag,
 // resize, click-through, rounded corners, and blur are all things a
@@ -84,6 +92,9 @@ class OverlayWindow {
 
   void set_on_bounds_changed(BoundsChangedCallback cb) { on_bounds_changed_ = std::move(cb); }
   void set_on_dpi_changed(DpiChangedCallback cb) { on_dpi_changed_ = std::move(cb); }
+  void set_on_paint(PaintCallback cb) { on_paint_ = std::move(cb); }
+  void set_on_click(ClickCallback cb) { on_click_ = std::move(cb); }
+  void set_on_resize(ResizeCallback cb) { on_resize_ = std::move(cb); }
 
  private:
   static LRESULT CALLBACK WndProcThunk(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
@@ -100,6 +111,9 @@ class OverlayWindow {
 
   BoundsChangedCallback on_bounds_changed_;
   DpiChangedCallback on_dpi_changed_;
+  PaintCallback on_paint_;
+  ClickCallback on_click_;
+  ResizeCallback on_resize_;
 };
 
 }  // namespace ai_overlay

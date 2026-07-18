@@ -239,6 +239,34 @@ LRESULT OverlayWindow::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
       return HitTest(pt);
     }
 
+    case WM_PAINT: {
+      PAINTSTRUCT ps;
+      // D2D renders directly to its own HWND-bound render target
+      // (not via this GDI BeginPaint/EndPaint pair) — the pair here only
+      // exists to validate the update region so Windows stops resending
+      // WM_PAINT. Documented pattern for D2D-in-a-Win32-window:
+      // https://learn.microsoft.com/windows/win32/direct2d/direct2d-quickstart
+      ::BeginPaint(hwnd, &ps);
+      if (on_paint_) on_paint_();
+      ::EndPaint(hwnd, &ps);
+      return 0;
+    }
+
+    case WM_LBUTTONUP: {
+      if (on_click_) {
+        POINT pt{GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+        on_click_(pt);
+      }
+      break;
+    }
+
+    case WM_SIZE: {
+      if (on_resize_) {
+        on_resize_(LOWORD(lparam), HIWORD(lparam));
+      }
+      break;
+    }
+
     case WM_WINDOWPOSCHANGED: {
       if (on_bounds_changed_) {
         const auto* pos = reinterpret_cast<WINDOWPOS*>(lparam);
